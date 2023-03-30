@@ -4,17 +4,10 @@ const modelPathRoot = "./models";
 
 const saveFile = require("./commons/saveFile")
 
-
-// import '@tensorflow/tfjs-node';
-// import * as canvas from 'canvas';
 const canvas = require('canvas');
 const faceapi = require('face-api.js');
-// import * as faceapi from 'face-api.js';
 const { Canvas, Image, ImageData } = canvas;
 faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
-
-let optionsSSDMobileNet;
-
 
 
 const loadModels = async (file) => {
@@ -64,25 +57,6 @@ const match = async (ref, query) => {
   const faceMatcher = new faceapi.FaceMatcher(resultsRef);
   const bestMatch = faceMatcher.findBestMatch(resultsQuery.descriptor);
   return bestMatch;
-
-  // const labels = faceMatcher.labeledDescriptors
-  //   .map(ld => ld.label)
-  // const refDrawBoxes = resultsRef
-  //   .map(res => res.detection.box)
-  //   .map((box, i) => new faceapi.draw.DrawBox(box, { label: labels[i] }))
-  // const outRef = faceapi.createCanvasFromMedia(referenceImage)
-  // refDrawBoxes.forEach(drawBox => drawBox.draw(outRef))
-
-  // saveFile('referenceImage.jpg', (outRef).toBuffer('image/jpeg'));
-
-  // const queryDrawBoxes = resultsQuery.map(res => {
-  //   const bestMatch = faceMatcher.findBestMatch(res.descriptor)
-  //   return new faceapi.draw.DrawBox(res.detection.box, { label: bestMatch.toString() })
-  // })
-  // const outQuery = faceapi.createCanvasFromMedia(queryImage)
-  // queryDrawBoxes.forEach(drawBox => drawBox.draw(outQuery))
-  // saveFile('queryImage.jpg', (outQuery).toBuffer('image/jpeg'))
-  // console.log('done, saved results to out/queryImage.jpg')
 }
 
 module.exports = {
