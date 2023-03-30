@@ -1,6 +1,9 @@
 const path = require("path");
 const modelPathRoot = "./models";
-const tf = require("@tensorflow/tfjs-node");
+// import { faceDetectionOptions } from './commons';
+
+const saveFile = require("./commons/saveFile")
+
 
 // import '@tensorflow/tfjs-node';
 // import * as canvas from 'canvas';
@@ -12,52 +15,80 @@ faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
 
 let optionsSSDMobileNet;
 
-async function image(file) {
-  const decoded = tf.node.decodeImage(file);
-  const casted = decoded.toFloat();
-  const result = casted.expandDims(0);
-  decoded.dispose();
-  casted.dispose();
-  return result;
+
+
+const loadModels = async (file) => {
+  const modelsPath = "./models";
+  await faceapi.nets.ssdMobilenetv1.loadFromDisk(modelsPath);
+  console.info("loading model complete: ssdMobilenetv1");
+  await faceapi.nets.faceRecognitionNet.loadFromDisk(modelsPath)
+  console.info("loading model complete: faceLandmark68Net");
+  await faceapi.nets.faceLandmark68Net.loadFromDisk(modelsPath)
+  console.info("loading model complete: faceRecognitionNet");
+}
+const main = async (file) => {
+  console.log("running main function");
+  const minConfidence = 0.5
+
+  await loadModels();
+  const img = await canvas.loadImage(file);
+  const detections = await faceapi.detectAllFaces(img, new faceapi.SsdMobilenetv1Options({ minConfidence }));
+  const out = faceapi.createCanvasFromMedia(img);
+  faceapi.draw.drawDetections(out, detections);
+
+  saveFile('faceDetection.jpg', out.toBuffer('image/jpeg'));
+  console.log('done, saved results to out/faceDetection.jpg');
+  return detections;
 }
 
-async function detect(tensor) {
-  const result = await faceapi.detectAllFaces(tensor, optionsSSDMobileNet);
-  return result;
-}
+const match = async (ref, query) => {
+  const REFERENCE_IMAGE = ref;
+  const QUERY_IMAGE = query;
 
-function hello() {
-    return "hello";
-}
+  await loadModels();
 
-const main = async () => {
-    // await faceapi.tf.setBackend("tensorflow");
-    // await faceapi.tf.enableProdMode();
-    // await faceapi.tf.ENV.set("DEBUG", false);
-    // await faceapi.tf.ready();
+  const minConfidence = 0.5;
+  const faceDetectionOptions = new faceapi.SsdMobilenetv1Options({ minConfidence });
 
-    // console.log(
-    //     `Version: TensorFlow/JS ${faceapi.tf?.version_core} FaceAPI ${faceapi.version.faceapi
-    //     } Backend: ${faceapi.tf?.getBackend()}`
-    // );
+  const referenceImage = await canvas.loadImage(REFERENCE_IMAGE);
+  const queryImage = await canvas.loadImage(QUERY_IMAGE);
 
-    console.log("Loading FaceAPI models");
-    const modelPath = path.join(__dirname, modelPathRoot);
-    await faceapi.nets.ssdMobilenetv1.loadFromDisk(modelPath);
-    optionsSSDMobileNet = new faceapi.SsdMobilenetv1Options({
-        minConfidence: 0.5,
-    });
+  const resultsRef = await faceapi.detectSingleFace(referenceImage, faceDetectionOptions)
+    .withFaceLandmarks()
+    .withFaceDescriptor();
 
-    const tensor = await image(file);
-    const result = await detect(tensor);
-    console.log("Detected faces:", result.length);
+  const resultsQuery = await faceapi.detectSingleFace(queryImage, faceDetectionOptions)
+    .withFaceLandmarks()
+    .withFaceDescriptor();
 
-    tensor.dispose();
+  const faceMatcher = new faceapi.FaceMatcher(resultsRef);
+  const bestMatch = faceMatcher.findBestMatch(resultsQuery.descriptor);
+  return bestMatch;
 
-    return result;
+  // const labels = faceMatcher.labeledDescriptors
+  //   .map(ld => ld.label)
+  // const refDrawBoxes = resultsRef
+  //   .map(res => res.detection.box)
+  //   .map((box, i) => new faceapi.draw.DrawBox(box, { label: labels[i] }))
+  // const outRef = faceapi.createCanvasFromMedia(referenceImage)
+  // refDrawBoxes.forEach(drawBox => drawBox.draw(outRef))
+
+  // saveFile('referenceImage.jpg', (outRef).toBuffer('image/jpeg'));
+
+  // const queryDrawBoxes = resultsQuery.map(res => {
+  //   const bestMatch = faceMatcher.findBestMatch(res.descriptor)
+  //   return new faceapi.draw.DrawBox(res.detection.box, { label: bestMatch.toString() })
+  // })
+  // const outQuery = faceapi.createCanvasFromMedia(queryImage)
+  // queryDrawBoxes.forEach(drawBox => drawBox.draw(outQuery))
+  // saveFile('queryImage.jpg', (outQuery).toBuffer('image/jpeg'))
+  // console.log('done, saved results to out/queryImage.jpg')
 }
 
 module.exports = {
     detect: main,
-    hello,
+    match
 };
+
+// https://npm.runkit.com/node-webcam
+// https://github.com/justadudewhohacks/face-api.js/blob/master/examples/examples-nodejs/faceDetection.ts

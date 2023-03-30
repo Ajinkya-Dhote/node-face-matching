@@ -17,6 +17,14 @@ app.post("/upload", async (req, res) => {
   });
 });
 
+app.post("/matcher", async (req, res) => {
+  const { file1, file2 } = req.files;
+  const result = await faceApiService.match(file1.data, file2.data);
+  res.json({
+   "result": result
+  });
+});
+
 app.listen(port, () => {
   console.log("Server started on port" + port);
 });
